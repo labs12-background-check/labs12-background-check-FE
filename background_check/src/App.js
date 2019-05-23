@@ -8,9 +8,10 @@ import Candidates from './components/candidates/candidateForm';
 import CandidateList from './components/candidates/candidateList';
 import Login from './Login';
 import Register from './Register';
-
+import { GoogleLogin } from 'react-google-login';
 import {Elements, StripeProvider} from 'react-stripe-elements';
 import CheckoutForm from './CheckoutForm';
+const keys = require('./keys');
 
 
 
@@ -21,8 +22,76 @@ const Homepage = styled.div`
 `;
 
 class App extends React.Component {
+
+  constructor() {
+    super();
+    this.state = {
+      isAuthenticated: false,
+      user: null,
+      token: ''
+    };
+  }
+
+  logout = () => {
+    this.setState({
+      isAuthenticated: false,
+      token: '',
+      user: null
+    })
+  };
+
+  googleResponse = (response) => {
+    const tokenBlob = new Blob([JSON.stringify({
+      access_token: response.accessToken
+    }, null, 2)], {type : 'application/json'});
+    const options = {
+      method: 'POST',
+      body: tokenBlob,
+      mode: 'cors',
+      cache: 'default'
+    };
+    fetch('http://localhost:4000/api/v1/auth/google', options).then(
+      r => {
+        const token = r.headers.get('x-auth-token');
+        r.json().then(user => {
+          if (token) {
+            this.setState({isAuthenticated: true, user, token})
+          }
+        });
+      }
+    )
+  };
+
+  onFailure = (error) => {
+    alert(error);
+  };
   
   render() {
+
+    let content = !!this.state.isAuthenticated ?
+      (
+        <div>
+          <p>Authenticated</p>
+          <div>
+            {this.state.user.email}
+          </div>
+          <div>
+            <button onClick={this.logout} className="button">
+              Log Out
+            </button>
+          </div>
+        </div>
+      ) :
+      (
+        <div>
+          <GoogleLogin 
+            client_id = {keys.google.clientID}
+            buttonText = "Login"
+            onSuccess={this.googleResponse}
+            onFailure={this.onFailure}
+          />
+        </div>
+      );
 
     return (
       <Router>
@@ -42,6 +111,8 @@ class App extends React.Component {
             <Link to ='/candidates'>Candidates</Link>
             <Link to ='/candidateList'>Submit Request</Link>
           </Homepage>
+          {content}
+          
             
             <Route exact path= '/login' component={Login} />
             <Route path= '/register' component={Register} />
